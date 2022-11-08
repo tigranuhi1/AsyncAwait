@@ -8,13 +8,17 @@
 */
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace AsyncAwait.Task1.CancellationTokens;
 
 internal class Program
 {
+    private static bool isToBeCancelled = false;
+    private static bool isCancelled = false;
     /// <summary>
-    /// The Main method should not be changed at all.
+    /// The Main method should not be changed at all.   
     /// </summary>
     /// <param name="args"></param>
     private static void Main(string[] args)
@@ -40,22 +44,48 @@ internal class Program
             }
 
             input = Console.ReadLine();
+            if(!isCancelled)
+            {
+                isToBeCancelled = true;
+            }
+            else
+                isCancelled = false;
         }
 
         Console.WriteLine("Press any key to continue");
         Console.ReadLine();
     }
 
-    private static void CalculateSum(int n)
+    private static async Task CalculateSum(int n)
     {
-        // todo: make calculation asynchronous
-        var sum = Calculator.Calculate(n);
-        Console.WriteLine($"Sum for {n} = {sum}.");
-        Console.WriteLine();
-        Console.WriteLine("Enter N: ");
-        // todo: add code to process cancellation and uncomment this line    
-        // Console.WriteLine($"Sum for {n} cancelled...");
+        CancellationTokenSource cts = new CancellationTokenSource();
+        var token = cts.Token;
 
-        Console.WriteLine($"The task for {n} started... Enter N to cancel the request:");
+        Task<long> sum = Calculator.CalculateAsync(n, token);
+        var cancelTask = Task.Run(async () =>
+        {
+            Console.WriteLine($"The task for {n} started... Enter N to cancel the request:");
+            await Task.Delay(1000);
+
+            if (isToBeCancelled)
+            {
+                isToBeCancelled = false;
+                isCancelled = true;
+                cts.Cancel();
+                cts.Dispose();
+                cts = new CancellationTokenSource();
+            }
+        });
+
+        await Task.WhenAny(sum, cancelTask);
+        if (token.IsCancellationRequested)
+        {
+            Console.WriteLine($"Sum for {n} cancelled...");
+        }
+        else
+        {
+            Console.WriteLine($"Sum for {n} = {await sum}.");
+            Console.WriteLine();
+        }
     }
 }
