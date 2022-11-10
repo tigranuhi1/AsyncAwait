@@ -15,8 +15,6 @@ namespace AsyncAwait.Task1.CancellationTokens;
 
 internal class Program
 {
-    private static bool isToBeCancelled = false;
-    private static bool isCancelled = false;
     /// <summary>
     /// The Main method should not be changed at all.   
     /// </summary>
@@ -44,12 +42,6 @@ internal class Program
             }
 
             input = Console.ReadLine();
-            if(!isCancelled)
-            {
-                isToBeCancelled = true;
-            }
-            else
-                isCancelled = false;
         }
 
         Console.WriteLine("Press any key to continue");
@@ -61,23 +53,25 @@ internal class Program
         CancellationTokenSource cts = new CancellationTokenSource();
         var token = cts.Token;
 
+        
         Task<long> sum = Calculator.CalculateAsync(n, token);
-        var cancelTask = Task.Run(async () =>
+        var cancelTask = Task.Run(() =>
         {
             Console.WriteLine($"The task for {n} started... Enter N to cancel the request:");
-            await Task.Delay(1000);
 
-            if (isToBeCancelled)
+            while (true)
             {
-                isToBeCancelled = false;
-                isCancelled = true;
-                cts.Cancel();
-                cts.Dispose();
-                cts = new CancellationTokenSource();
+                if (Console.KeyAvailable)
+                {
+                    cts.Cancel();
+                    cts.Dispose();
+                    cts = new CancellationTokenSource();
+                    break;
+                }
             }
         });
 
-        await Task.WhenAny(sum, cancelTask);
+        Task.WaitAny(sum, cancelTask);
         if (token.IsCancellationRequested)
         {
             Console.WriteLine($"Sum for {n} cancelled...");
